@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* This tells Tailwind to look in the parent folder (src) for your code */
+@source "../**/*.{js,ts,jsx,tsx}"; 
+
+@import "tw-animate-css";
