@@ -88,17 +88,22 @@ export default function App() {
     },
   ]);
 
+
   const handleLogin = (
     email: string,
     password: string,
     role: "user" | "admin",
   ) => {
-    setIsAuthenticated(true);
-    setUserRole(role);
-    setUserEmail(email);
-    toast.success(`Welcome! Logged in as ${role}`);
-  };
+    const safeRole: "user" | "admin" =
+      role === "admin" ? "admin" : "user";
 
+    setIsAuthenticated(true);
+    setUserRole(safeRole);
+    setUserEmail(email);
+
+    toast.success(`Welcome! Logged in as ${safeRole}`);
+  };
+  
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUserRole("user");
@@ -203,6 +208,7 @@ export default function App() {
                 Map
               </span>
             </TabsTrigger>
+
             <TabsTrigger
               value="alerts"
               className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 text-xs sm:text-sm px-2 py-2"
@@ -210,27 +216,37 @@ export default function App() {
               <Bell className="h-4 w-4 sm:h-4 sm:w-4" />
               <span className="text-[10px] sm:text-sm">Alerts</span>
             </TabsTrigger>
-            <TabsTrigger
-              value="report"
-              className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 text-xs sm:text-sm px-2 py-2"
-            >
-              <FileText className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-sm">Report</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="chatbot"
-              className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 text-xs sm:text-sm px-2 py-2"
-            >
-              <Bot className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-sm">AI</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="emergency"
-              className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 text-xs sm:text-sm px-2 py-2"
-            >
-              <Phone className="h-4 w-4 sm:h-4 sm:w-4" />
-              <span className="text-[10px] sm:text-sm">SOS</span>
-            </TabsTrigger>
+
+            {userRole !== "admin" && (
+              <TabsTrigger
+                value="report"
+                className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 text-xs sm:text-sm px-2 py-2"
+              >
+                <FileText className="h-4 w-4 sm:h-4 sm:w-4" />
+                <span className="text-[10px] sm:text-sm">Report</span>
+              </TabsTrigger>
+            )}
+
+            {userRole !== "admin" && (
+              <TabsTrigger
+                value="chatbot"
+                className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 text-xs sm:text-sm px-2 py-2"
+              >
+                <Bot className="h-4 w-4 sm:h-4 sm:w-4" />
+                <span className="text-[10px] sm:text-sm">AI</span>
+              </TabsTrigger>
+            )}
+
+            {userRole !== "admin" && (
+              <TabsTrigger
+                value="emergency"
+                className="flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 text-xs sm:text-sm px-2 py-2"
+              >
+                <Phone className="h-4 w-4 sm:h-4 sm:w-4" />
+                <span className="text-[10px] sm:text-sm">SOS</span>
+              </TabsTrigger>
+            )}
+
             {isAuthenticated && userRole === "admin" && (
               <TabsTrigger
                 value="analytics"
@@ -242,6 +258,7 @@ export default function App() {
                 </span>
               </TabsTrigger>
             )}
+            
             {isAuthenticated && userRole === "admin" && (
               <TabsTrigger
                 value="admin"
@@ -313,7 +330,7 @@ export default function App() {
                     Monitor incidents, trends, and risk zones
                   </p>
                 </div>
-                <AnalyticsDashboard />
+                <AnalyticsDashboard role={userRole} />
               </div>
             </TabsContent>
           )}

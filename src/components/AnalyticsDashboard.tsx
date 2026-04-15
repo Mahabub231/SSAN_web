@@ -1,14 +1,13 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from './ui/card';
+} from "./ui/card";
 
 import {
-  BarChart,
-  Bar,
   LineChart,
   Line,
   PieChart,
@@ -19,158 +18,179 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from 'recharts';
+  BarChart,
+  Bar,
+} from "recharts";
 
-import { AlertTriangle, Users, TrendingUp, MapPin } from 'lucide-react';
+import { AlertTriangle, Users, TrendingUp, MapPin } from "lucide-react";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../lib/firebase";
 
-/* =====================
-   Dummy Data (Exam Use)
-===================== */
+type Props = {
+  role: "admin" | "user";
+};
 
-const incidentTypeData = [
-  { name: 'Crime', value: 45 },
-  { name: 'Accident', value: 30 },
-  { name: 'Suspicious', value: 15 },
-  { name: 'Hazard', value: 10 },
-];
+export function AnalyticsDashboard({ role }: Props) {
+  const [users, setUsers] = useState<any[]>([]);
+  const [incidents, setIncidents] = useState<any[]>([]);
 
-const monthlyData = [
-  { month: 'Jan', incidents: 120 },
-  { month: 'Feb', incidents: 145 },
-  { month: 'Mar', incidents: 180 },
-  { month: 'Apr', incidents: 160 },
-  { month: 'May', incidents: 200 },
-  { month: 'Jun', incidents: 175 },
-];
+  /* ================= FIREBASE LOAD ================= */
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const userSnap = await getDocs(collection(db, "users"));
+        const incidentSnap = await getDocs(collection(db, "incidents"));
 
-const hotspotData = [
-  { area: 'Dhanmondi', incidents: 156 },
-  { area: 'Mirpur', incidents: 134 },
-  { area: 'Uttara', incidents: 98 },
-  { area: 'Gulshan', incidents: 87 },
-];
+        setUsers(userSnap.docs.map((d) => d.data()));
+        setIncidents(incidentSnap.docs.map((d) => d.data()));
+      } catch (err) {
+        console.error("Firebase error:", err);
+      }
+    };
 
-const COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6'];
+    fetchData();
+  }, []);
 
-/* =====================
-   Component
-===================== */
+  /* ================= ADMIN CHECK ================= */
+  if (role !== "admin") {
+    return (
+      <div className="p-10 text-center text-red-500 font-bold">
+        Access Denied 🚫 Admin Only
+      </div>
+    );
+  }
 
-export function AnalyticsDashboard() {
+  /* ================= SAFE DATA ================= */
+  const safeIncidents = Array.isArray(incidents) ? incidents : [];
+
+  const totalUsers = users?.length || 0;
+  const totalIncidents = safeIncidents.length;
+
+  const crimeCount = safeIncidents.filter((i) => i?.type === "Crime").length;
+  const accidentCount = safeIncidents.filter((i) => i?.type === "Accident").length;
+  const suspiciousCount = safeIncidents.filter((i) => i?.type === "Suspicious").length;
+
+  const riskAreas = new Set(
+    safeIncidents.map((i) => i?.area || "Unknown")
+  ).size;
+
+  /* ================= CHART DATA ================= */
+
+  const incidentTypeData = [
+    { name: "Crime", value: crimeCount },
+    { name: "Accident", value: accidentCount },
+    { name: "Suspicious", value: suspiciousCount },
+  ];
+
+  const monthlyData = [
+    { month: "Total", incidents: totalIncidents },
+  ];
+
+  const hotspotData = useMemo(() => {
+    const map: Record<string, number> = {};
+
+    safeIncidents.forEach((i) => {
+      const area = i?.area || "Unknown";
+      map[area] = (map[area] || 0) + 1;
+    });
+
+    return Object.entries(map).map(([area, count]) => ({
+      area,
+      incidents: count,
+    }));
+  }, [safeIncidents]);
+
+  const COLORS = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6"];
+
+  /* ================= UI ================= */
+
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6">
 
-      {/* ===== Top Statistics ===== */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      {/* STATS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
         <Card>
-          <CardHeader className="flex flex-row justify-between items-start p-3 sm:p-6 pb-2 sm:pb-2">
-            <CardTitle className="text-xs sm:text-sm">Total Incidents</CardTitle>
-            <AlertTriangle className="h-3 w-3 sm:h-4 sm:w-4 text-red-500 flex-shrink-0" />
+          <CardHeader>
+            <CardTitle>Total Incidents</CardTitle>
+            <AlertTriangle className="text-red-500" />
           </CardHeader>
-          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-            <h2 className="text-xl sm:text-2xl font-bold">544</h2>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
-              Last 6 months
-            </p>
+          <CardContent>
+            <h2 className="text-2xl font-bold">{totalIncidents}</h2>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row justify-between items-start p-3 sm:p-6 pb-2 sm:pb-2">
-            <CardTitle className="text-xs sm:text-sm">Active Users</CardTitle>
-            <Users className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0" />
+          <CardHeader>
+            <CardTitle>Users</CardTitle>
+            <Users className="text-blue-500" />
           </CardHeader>
-          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-            <h2 className="text-xl sm:text-2xl font-bold">2,847</h2>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
-              Registered users
-            </p>
+          <CardContent>
+            <h2 className="text-2xl font-bold">{totalUsers}</h2>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row justify-between items-start p-3 sm:p-6 pb-2 sm:pb-2">
-            <CardTitle className="text-xs sm:text-sm">Resolution Rate</CardTitle>
-            <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-green-500 flex-shrink-0" />
+          <CardHeader>
+            <CardTitle>Resolution Rate</CardTitle>
+            <TrendingUp className="text-green-500" />
           </CardHeader>
-          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-            <h2 className="text-xl sm:text-2xl font-bold">94%</h2>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
-              Successfully handled
-            </p>
+          <CardContent>
+            <h2 className="text-2xl font-bold">94%</h2>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row justify-between items-start p-3 sm:p-6 pb-2 sm:pb-2">
-            <CardTitle className="text-xs sm:text-sm">Risk Areas</CardTitle>
-            <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500 flex-shrink-0" />
+          <CardHeader>
+            <CardTitle>Risk Areas</CardTitle>
+            <MapPin className="text-orange-500" />
           </CardHeader>
-          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-            <h2 className="text-xl sm:text-2xl font-bold">8</h2>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
-              High-risk zones
-            </p>
+          <CardContent>
+            <h2 className="text-2xl font-bold">{riskAreas}</h2>
           </CardContent>
         </Card>
 
       </div>
 
-      {/* ===== Charts ===== */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+      {/* CHARTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* Line Chart */}
+        {/* LINE */}
         <Card>
-          <CardHeader className="p-3 sm:p-6">
-            <CardTitle className="text-base sm:text-lg">Monthly Incidents</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">
-              Incident trend by month
-            </CardDescription>
+          <CardHeader>
+            <CardTitle>Incidents Overview</CardTitle>
+            <CardDescription>Live Firebase data</CardDescription>
           </CardHeader>
-          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
               <LineChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <XAxis dataKey="month" />
+                <YAxis />
                 <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="incidents"
-                  stroke="#ef4444"
-                  strokeWidth={2}
-                />
+                <Line type="monotone" dataKey="incidents" stroke="#ef4444" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Pie Chart */}
+        {/* PIE */}
         <Card>
-          <CardHeader className="p-3 sm:p-6">
-            <CardTitle className="text-base sm:text-lg">Incident Types</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">
-              Percentage by category
-            </CardDescription>
+          <CardHeader>
+            <CardTitle>Incident Types</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
                   data={incidentTypeData}
                   dataKey="value"
                   nameKey="name"
-                  cx="50%"
-                  cy="50%"
                   outerRadius={80}
-                  label={(entry) => entry.name}
+                  label
                 >
-                  {incidentTypeData.map((_, index) => (
-                    <Cell
-                      key={index}
-                      fill={COLORS[index % COLORS.length]}
-                    />
+                  {incidentTypeData.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -181,20 +201,18 @@ export function AnalyticsDashboard() {
 
       </div>
 
-      {/* ===== Hotspot Bar Chart ===== */}
+      {/* BAR */}
       <Card>
-        <CardHeader className="p-3 sm:p-6">
-          <CardTitle className="text-base sm:text-lg">Incident Hotspots</CardTitle>
-          <CardDescription className="text-xs sm:text-sm">
-            Areas with highest incidents
-          </CardDescription>
+        <CardHeader>
+          <CardTitle>Hotspot Areas</CardTitle>
         </CardHeader>
-        <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
-          <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
+
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
             <BarChart data={hotspotData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="area" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <XAxis dataKey="area" />
+              <YAxis />
               <Tooltip />
               <Bar dataKey="incidents" fill="#ef4444" />
             </BarChart>

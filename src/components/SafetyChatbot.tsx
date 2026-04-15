@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
-import { ScrollArea } from './ui/scroll-area';
 import { Bot, Send, User } from 'lucide-react';
 
 interface Message {
@@ -22,12 +21,17 @@ export function SafetyChatbot() {
     },
   ]);
   const [inputValue, setInputValue] = useState('');
-  const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // 1. Ref for the invisible bottom anchor instead of the scroll container
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 2. Smoothly scroll to the anchor whenever messages change
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    scrollToBottom();
   }, [messages]);
 
   const generateBotResponse = (userMessage: string): string => {
@@ -87,64 +91,68 @@ export function SafetyChatbot() {
   };
 
   return (
-    <Card className="flex flex-col h-[500px] sm:h-[600px]">
-      <CardHeader className="p-3 sm:p-6">
+    // 3. Added overflow-hidden to strict constraint the card
+    <Card className="flex flex-col h-[500px] sm:h-[600px] overflow-hidden">
+      <CardHeader className="p-3 sm:p-6 border-b shrink-0 bg-white z-10">
         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
           <Bot className="h-4 w-4 sm:h-5 sm:w-5" />
           AI Safety Assistant
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col p-0 min-h-0">
-        <ScrollArea className="flex-1 px-3 sm:px-4" ref={scrollRef}>
-          <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
-            {messages.map((message) => (
+      
+      <CardContent className="flex-1 flex flex-col p-0 min-h-0 bg-gray-50 overflow-hidden">
+        
+        {/* 4. Native scrolling div instead of ScrollArea */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex gap-2 sm:gap-3 ${
+                message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
+              }`}
+            >
               <div
-                key={message.id}
-                className={`flex gap-2 sm:gap-3 ${
-                  message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
+                className={`flex-shrink-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center ${
+                  message.sender === 'user' ? 'bg-blue-600' : 'bg-gray-200'
                 }`}
               >
-                <div
-                  className={`flex-shrink-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center ${
-                    message.sender === 'user' ? 'bg-blue-500' : 'bg-gray-200'
-                  }`}
-                >
-                  {message.sender === 'user' ? (
-                    <User className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                  ) : (
-                    <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-gray-700" />
-                  )}
-                </div>
-                <div
-                  className={`flex-1 max-w-[85%] sm:max-w-[80%] rounded-lg p-2 sm:p-3 ${
-                    message.sender === 'user'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-900'
-                  }`}
-                >
-                  <p className="text-xs sm:text-sm whitespace-pre-line break-words">{message.text}</p>
-                  <span className="text-[10px] sm:text-xs opacity-70 mt-1 block">
-                    {message.timestamp.toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
+                {message.sender === 'user' ? (
+                  <User className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                ) : (
+                  <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-gray-700" />
+                )}
               </div>
-            ))}
-          </div>
-        </ScrollArea>
+              <div
+                className={`flex-1 max-w-[85%] sm:max-w-[80%] rounded-lg p-2 sm:p-3 shadow-sm border ${
+                  message.sender === 'user'
+                    ? 'bg-blue-600 text-white border-blue-700'
+                    : 'bg-white text-gray-900 border-gray-200'
+                }`}
+              >
+                <p className="text-xs sm:text-sm whitespace-pre-line break-words">{message.text}</p>
+                <span className={`text-[10px] sm:text-xs mt-1 block ${message.sender === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>
+                  {message.timestamp.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </div>
+            </div>
+          ))}
+          {/* 5. The invisible anchor to scroll to */}
+          <div ref={messagesEndRef} className="h-1" />
+        </div>
 
-        <div className="p-3 sm:p-4 border-t">
+        <div className="p-3 sm:p-4 border-t bg-white shrink-0 z-10">
           <div className="flex gap-2">
             <Input
               placeholder="Ask about safety, emergencies..."
-              className="text-sm"
+              className="text-sm bg-white"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
             />
-            <Button onClick={handleSend} size="icon" className="flex-shrink-0">
+            <Button onClick={handleSend} size="icon" className="flex-shrink-0 bg-blue-600 hover:bg-blue-700">
               <Send className="h-4 w-4" />
             </Button>
           </div>

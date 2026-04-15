@@ -5,24 +5,74 @@ import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { ShieldAlert } from 'lucide-react';
+import { auth, db } from '../lib/firebase'; // firebase import
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword 
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { toast } from 'sonner';
 
 interface AuthFormProps {
-  onLogin: (email: string, password: string, role: 'user' | 'admin') => void;
+  onLogin: (email: string, role: 'user' | 'admin') => void;
 }
 
 export function AuthForm({ onLogin }: AuthFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'user' | 'admin'>('user');
+  const [name, setName] = useState(''); // Name field for registration
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent, isRegister: boolean) => {
+  // --- Registration Logic ---
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login/register
-    onLogin(email, password, role);
+    setIsLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Firestore-e user data save kora
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        name: name,
+        email: email,
+        role: 'user', // Default role user thakbe
+        createdAt: new Date().toISOString()
+      });
+
+      toast.success("Account created! Please login.");
+      // Automatic login or switch tab
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- Login Logic ---
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Firestore theke user-er role check kora
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        onLogin(email, userData.role); // Role pass kora (Admin/User)
+        toast.success(`Welcome back, ${userData.name}!`);
+      }
+    } catch (error: any) {
+      toast.error("Invalid credentials or user not found.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center mb-8">
           <ShieldAlert className="h-12 w-12 text-blue-600 mr-3" />
@@ -38,6 +88,7 @@ export function AuthForm({ onLogin }: AuthFormProps) {
             <TabsTrigger value="register">Register</TabsTrigger>
           </TabsList>
 
+          {/* LOGIN SECTION */}
           <TabsContent value="login">
             <Card>
               <CardHeader>
@@ -45,13 +96,12 @@ export function AuthForm({ onLogin }: AuthFormProps) {
                 <CardDescription>Login to access your safety dashboard</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-4">
+                <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
                       type="email"
-                      placeholder="your@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -62,32 +112,20 @@ export function AuthForm({ onLogin }: AuthFormProps) {
                     <Input
                       id="password"
                       type="password"
-                      placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="role">Login as</Label>
-                    <select
-                      id="role"
-                      value={role}
-                      onChange={(e) => setRole(e.target.value as 'user' | 'admin')}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
-                  <Button type="submit" className="w-full">
-                    Login
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Checking..." : "Login"}
                   </Button>
                 </form>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* REGISTER SECTION */}
           <TabsContent value="register">
             <Card>
               <CardHeader>
@@ -95,13 +133,23 @@ export function AuthForm({ onLogin }: AuthFormProps) {
                 <CardDescription>Join the safety network today</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={(e) => handleSubmit(e, true)} className="space-y-4">
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="Mahin Bin ..."
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="reg-email">Email</Label>
                     <Input
                       id="reg-email"
                       type="email"
-                      placeholder="your@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -112,14 +160,13 @@ export function AuthForm({ onLogin }: AuthFormProps) {
                     <Input
                       id="reg-password"
                       type="password"
-                      placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
                     />
                   </div>
-                  <Button type="submit" className="w-full">
-                    Create Account
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Creating..." : "Create Account"}
                   </Button>
                 </form>
               </CardContent>
